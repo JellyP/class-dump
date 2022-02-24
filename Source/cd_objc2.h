@@ -44,6 +44,12 @@ struct cd_objc2_method {
     uint64_t imp;
 };
 
+struct cd_relative_objc2_method {
+    uint32_t name;
+    uint32_t types;
+    uint32_t imp;
+};
+
 struct cd_objc2_ivar {
     uint64_t offset;
     uint64_t name;

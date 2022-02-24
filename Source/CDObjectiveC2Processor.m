@@ -21,6 +21,14 @@
 #import "CDProtocolUniquer.h"
 #import "CDOCClassReference.h"
 
+bool usesDirectOffsetsToSelectors(struct cd_objc2_list_header *header) {
+    return (header->entsize & 0x40000000) != 0;
+}
+
+bool usesRelativeOffsets(struct cd_objc2_list_header *header) {
+    return (header->entsize & 0x80000000) != 0;
+}
+
 @implementation CDObjectiveC2Processor
 {
 }
@@ -28,7 +36,9 @@
 - (void)loadProtocols;
 {
     CDSection *section = [[self.machOFile dataConstSegment] sectionWithName:@"__objc_protolist"];
-    
+    if (section == nil)
+        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_protolist"];
+
     CDMachOFileDataCursor *cursor = [[CDMachOFileDataCursor alloc] initWithSection:section];
     while ([cursor isAtEnd] == NO)
         [self protocolAtAddress:[cursor readPtr]];
@@ -37,7 +47,9 @@
 - (void)loadClasses;
 {
     CDSection *section = [[self.machOFile dataConstSegment] sectionWithName:@"__objc_classlist"];
-    
+    if (section == nil)
+        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_protolist"];
+
     CDMachOFileDataCursor *cursor = [[CDMachOFileDataCursor alloc] initWithSection:section];
     while ([cursor isAtEnd] == NO) {
         uint64_t val = [cursor readPtr];
@@ -51,7 +63,9 @@
 - (void)loadCategories;
 {
     CDSection *section = [[self.machOFile dataConstSegment] sectionWithName:@"__objc_catlist"];
-    
+    if (section == nil)
+        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_protolist"];
+
     CDMachOFileDataCursor *cursor = [[CDMachOFileDataCursor alloc] initWithSection:section];
     while ([cursor isAtEnd] == NO) {
         CDOCCategory *category = [self loadCategoryAtAddress:[cursor readPtr]];
@@ -401,28 +415,58 @@
         // See getEntsize() from http://www.opensource.apple.com/source/objc4/objc4-532.2/runtime/objc-runtime-new.h
         listHeader.entsize = [cursor readInt32] & ~(uint32_t)3;
         listHeader.count   = [cursor readInt32];
-        NSParameterAssert(listHeader.entsize == 3 * [self.machOFile ptrSize]);
-        
-        for (uint32_t index = 0; index < listHeader.count; index++) {
-            struct cd_objc2_method objc2Method;
+        if (usesRelativeOffsets(&listHeader) == false) {
+            NSParameterAssert(listHeader.entsize == 3 * [self.machOFile ptrSize]);
             
-            objc2Method.name  = [cursor readPtr];
-            objc2Method.types = [cursor readPtr];
-            objc2Method.imp   = [cursor readPtr];
-            NSString *name    = [self.machOFile stringAtAddress:objc2Method.name];
-            NSString *types   = [self.machOFile stringAtAddress:objc2Method.types];
-            
-            if (extendedMethodTypesCursor) {
-                uint64_t extendedMethodTypes = [extendedMethodTypesCursor readPtr];
-                types = [self.machOFile stringAtAddress:extendedMethodTypes];
+            for (uint32_t index = 0; index < listHeader.count; index++) {
+                struct cd_objc2_method objc2Method;
+                
+                objc2Method.name  = [cursor readPtr];
+                objc2Method.types = [cursor readPtr];
+                objc2Method.imp   = [cursor readPtr];
+                NSString *name    = [self.machOFile stringAtAddress:objc2Method.name];
+                NSString *types   = [self.machOFile stringAtAddress:objc2Method.types];
+                
+                if (extendedMethodTypesCursor) {
+                    uint64_t extendedMethodTypes = [extendedMethodTypesCursor readPtr];
+                    types = [self.machOFile stringAtAddress:extendedMethodTypes];
+                }
+                
+                //NSLog(@"%3u: %016lx %016lx %016lx", index, objc2Method.name, objc2Method.types, objc2Method.imp);
+                //NSLog(@"name: %@", name);
+                //NSLog(@"types: %@", types);
+                
+                CDOCMethod *method = [[CDOCMethod alloc] initWithName:name typeString:types address:objc2Method.imp];
+                [methods addObject:method];
             }
-            
-            //NSLog(@"%3u: %016lx %016lx %016lx", index, objc2Method.name, objc2Method.types, objc2Method.imp);
-            //NSLog(@"name: %@", name);
-            //NSLog(@"types: %@", types);
-            
-            CDOCMethod *method = [[CDOCMethod alloc] initWithName:name typeString:types address:objc2Method.imp];
-            [methods addObject:method];
+        } else {
+            uint64_t current_method_address = address + sizeof(struct cd_objc2_list_header);
+            for (uint32_t index = 0; index < listHeader.count; index++) {
+                struct cd_relative_objc2_method objc2Method;
+                
+                objc2Method.name  = [cursor readInt32];
+                objc2Method.types = [cursor readInt32];
+                objc2Method.imp   = [cursor readInt32];
+                // selector
+                CDMachOFileDataCursor *cursor = [[CDMachOFileDataCursor alloc] initWithFile:self.machOFile address:(objc2Method.name + current_method_address)];
+                uint64_t name_address = [cursor readInt64];
+                NSString *name    = [self.machOFile stringAtAddress:name_address];
+                NSString *types   = [self.machOFile stringAtAddress:(objc2Method.types + current_method_address + 4)];
+                
+                if (extendedMethodTypesCursor) {
+                    uint64_t extendedMethodTypes = [extendedMethodTypesCursor readPtr];
+                    types = [self.machOFile stringAtAddress:extendedMethodTypes];
+                }
+                
+                //NSLog(@"%3u: %016lx %016lx %016lx", index, objc2Method.name, objc2Method.types, objc2Method.imp);
+                NSLog(@"name: %@", name);
+                NSLog(@"types: %@", types);
+                uint64_t imp_address = objc2Method.imp + current_method_address + 8;
+                CDOCMethod *method = [[CDOCMethod alloc] initWithName:name typeString:types address:imp_address];
+                [methods addObject:method];
+                current_method_address += sizeof(struct cd_relative_objc2_method);
+            }
+
         }
     }
     
@@ -494,7 +538,11 @@
 
 - (CDSection *)objcImageInfoSection;
 {
-    return [[self.machOFile dataConstSegment] sectionWithName:@"__objc_imageinfo"];
+    CDSection *section = [[self.machOFile segmentWithName:@"__DATA"] sectionWithName:@"__objc_imageinfo"];
+    if (section == nil)
+        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_imageinfo"];
+
+    return section;
 }
 
 @end
