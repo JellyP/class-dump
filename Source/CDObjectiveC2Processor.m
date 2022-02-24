@@ -448,8 +448,8 @@ bool usesRelativeOffsets(struct cd_objc2_list_header *header) {
                 objc2Method.types = [cursor readInt32];
                 objc2Method.imp   = [cursor readInt32];
                 // selector
-                CDMachOFileDataCursor *cursor = [[CDMachOFileDataCursor alloc] initWithFile:self.machOFile address:(objc2Method.name + current_method_address)];
-                uint64_t name_address = [cursor readInt64];
+                CDMachOFileDataCursor *selector_cursor = [[CDMachOFileDataCursor alloc] initWithFile:self.machOFile address:(objc2Method.name + current_method_address)];
+                uint64_t name_address = [selector_cursor readInt64];
                 NSString *name    = [self.machOFile stringAtAddress:name_address];
                 NSString *types   = [self.machOFile stringAtAddress:(objc2Method.types + current_method_address + 4)];
                 
@@ -459,8 +459,8 @@ bool usesRelativeOffsets(struct cd_objc2_list_header *header) {
                 }
                 
                 //NSLog(@"%3u: %016lx %016lx %016lx", index, objc2Method.name, objc2Method.types, objc2Method.imp);
-                NSLog(@"name: %@", name);
-                NSLog(@"types: %@", types);
+//                NSLog(@"name: %@", name);
+//                NSLog(@"types: %@", types);
                 uint64_t imp_address = objc2Method.imp + current_method_address + 8;
                 CDOCMethod *method = [[CDOCMethod alloc] initWithName:name typeString:types address:imp_address];
                 [methods addObject:method];
