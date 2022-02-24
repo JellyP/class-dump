@@ -52,7 +52,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "--arch x86_64 -H -o iOS/Frameworks//CoreMIDI.framework /Users/guodongpeng/Desktop/Xcode13.app/Contents/Developer/Platforms/iPhoneOS.platform/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS.simruntime/Contents/Resources/RuntimeRoot/System/Library/Frameworks/CoreMIDI.framework"
+            argument = "--arch x86_64 -H -o iOS/Frameworks//CoreLocationUI.framework /Users/guodongpeng/Desktop/Xcode13.app/Contents/Developer/Platforms/iPhoneOS.platform/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS.simruntime/Contents/Resources/RuntimeRoot/System/Library/Frameworks/CoreLocationUI.framework"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

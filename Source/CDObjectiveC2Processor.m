@@ -48,7 +48,7 @@ bool usesRelativeOffsets(struct cd_objc2_list_header *header) {
 {
     CDSection *section = [[self.machOFile dataConstSegment] sectionWithName:@"__objc_classlist"];
     if (section == nil)
-        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_protolist"];
+        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_classlist"];
 
     CDMachOFileDataCursor *cursor = [[CDMachOFileDataCursor alloc] initWithSection:section];
     while ([cursor isAtEnd] == NO) {
@@ -64,7 +64,7 @@ bool usesRelativeOffsets(struct cd_objc2_list_header *header) {
 {
     CDSection *section = [[self.machOFile dataConstSegment] sectionWithName:@"__objc_catlist"];
     if (section == nil)
-        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_protolist"];
+        section = [[self.machOFile segmentWithName:@"__DATA_CONST"] sectionWithName:@"__objc_catlist"];
 
     CDMachOFileDataCursor *cursor = [[CDMachOFileDataCursor alloc] initWithSection:section];
     while ([cursor isAtEnd] == NO) {
